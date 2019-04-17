@@ -1,0 +1,53 @@
+<html>
+  <head>
+  	<!--<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script> -->
+  	<script src="jquery.js"></script>
+    <style>
+    	button {
+    	font-family: helvetica;
+		font-size: 80%;
+		width: 65px;
+		text-align: center;
+		}
+
+		#temp {
+		font-family: helvetica;
+		font-size: 100%;
+		height: 75px;
+		text-align: center;
+		}
+
+		input {
+		font-size: 14px;
+		height: 40px;
+		text-align: right;
+		}
+    </style>
+  </head>
+
+  <body>
+  <div id="main" align="center" width=800px>
+    <span id = "display"></span>
+  </div>
+
+  <div id="options" align="center">
+    <p><button id = "update"> Update </button>
+      <button id = "unit"> Units </button>
+    <button id = "standby"> Standby </button></p>
+  </div>
+
+  <div id="message" align="center">
+    <p><input id = "msginput"></button>
+    <button id = "send"> Send </button></p>
+  </div>
+
+    <span id='output'><!-- Use this span for writing debug messages or anything else you think will help! --></span>
+
+    <script src="userinput.js"></script>
+
+
+  </body>
+
+
+
+</html>
