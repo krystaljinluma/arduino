@@ -1,3 +1,5 @@
+#include "server.h"
+
 /* 
 This code primarily comes from 
 http://www.prasannatech.net/2008/07/socket-programming-tutorial.html
@@ -5,43 +7,74 @@ and
 http://www.binarii.com/files/papers/c_sockets.txt
  */
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <errno.h>
-#include <string.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <termios.h>
-#include <pthread.h>
+/*globals*/
+extern char unit;
+extern int port;
+extern char* usb;
+extern float max;
+extern float min;
+extern float avg;
+extern int connected;
 
-// #include "read_usb.h"
-
-char* read_file(char* filename, char* header, int size);
-char* create_response(char* request_uri);
-char* create_json(char* json_content);
-char* format_temp(char* current_temp, char current_unit);
-char convert_unit(char current_unit);
-
-char unit = 'C';
-int port;
-char* usb;
-
-
-pthread_mutex_t lock;
-pthread_mutex_t lock_unit;
-pthread_mutex_t lock_port;
-pthread_mutex_t lock_usb;
+extern pthread_mutex_t lock;
+extern pthread_mutex_t lock_usb;
+extern pthread_mutex_t lock_port;
+extern pthread_mutex_t lock_arr;
+extern pthread_mutex_t lock_unit;
 
 extern char msg[100];
-extern void* read_temp(void* filename);
-extern int send_data(char* name, int msg);
+extern float temperature[360];
 
+void* handle_request(void* fd_arg) {
+  int fd = *(int*) fd_arg;
+  
+  // buffer to read data into
+  char request[1024];
+  request[0] = '\0';
 
+  // 5. recv: read incoming message (request) into buffer
+  int bytes_received = recv(fd,request,1024,0);
+  if (bytes_received < 1) {
+    printf("0: didn't receive\n");
+  }
+  // null-terminate the string
+  request[bytes_received] = '\0';
+  // print it to standard out
+  printf("This is the incoming request:\n%s\n", request);
+
+  printf("1\n");
+  char request_cpy[1024];
+  request_cpy[0] = '\0';
+  strcpy(request_cpy, request);
+
+  printf("2: %s\n", request_cpy);
+
+  char* token = strtok(request_cpy, " ");
+  printf("2.1: %s\n", token);
+  char* request_type = malloc(sizeof(char)*(strlen(token)+1));
+  printf("2.2\n");
+  strcpy(request_type, token);
+  printf("3\n");
+
+  token = strtok(NULL, " ");
+  char* request_uri = malloc(sizeof(char)*(strlen(token)+1));
+  strcpy(request_uri, token+1);
+
+  char* reply = create_response(request_uri);
+  // 6. send: send the outgoing message (response) over the socket
+  // note that the second argument is a char*, and the third is the number of chars 
+  send(fd, reply, strlen(reply), 0);
+
+  printf("end of server: %s\n", reply);
+  free(reply);
+  free(request_uri);
+  free(request_type);
+
+  // 7. close: close the connection
+  close(fd);
+  printf("Server closed connection\n");
+  pthread_exit(&fd);
+}
 
 void* start_server(void* arg)
 {
@@ -97,7 +130,88 @@ void* start_server(void* arg)
   
   //while true and keep accepting new connection and then have a quit button in browser
   while (1) {
+    int* fd = malloc(sizeof(int));
+    *fd = accept(sock, (struct sockaddr *)&client_addr,(socklen_t *)&sin_size);
+
+    printf("FD: %d\n", *fd);
+    //printf("Server got a connection from (%s, %d)\n", inet_ntoa(client_addr.sin_addr),ntohs(client_addr.sin_port));
+
+    // start thread to pass in fd; pthread
+    pthread_t t;
+    
+    /* Create each thread; exit thread, if error */
+    pthread_create(&t, NULL, &handle_request, fd);
+
+    pthread_detach(t);
+
+    free(fd);
+  }
+
+  // 8. close: close the socket
+  close(sock);
+  printf("Server shutting down\n");
+
+  pthread_exit(NULL);
+} 
+
+/*
+void* start_server(void* arg)
+{
+  pthread_mutex_lock(&lock_port);
+  int port_number = port;
+  pthread_mutex_unlock(&lock_port);
+
+  pthread_mutex_lock(&lock_usb);
+  char* usb_file = malloc(sizeof(char)*strlen(usb) + 1);
+  strcpy(usb_file, usb);
+  pthread_mutex_unlock(&lock_usb);
+
+  // structs to represent the server and client
+  struct sockaddr_in server_addr,client_addr;    
+
+  int sock; // socket descriptor
+
+  // 1. socket: creates a socket descriptor that you later use to make other system calls
+  if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+    perror("Socket");
+    exit(1);
+  }
+  int temp;
+  if (setsockopt(sock,SOL_SOCKET,SO_REUSEADDR,&temp,sizeof(int)) == -1) {
+    perror("Setsockopt");
+    exit(1);
+  }
+
+  // configure the server
+  server_addr.sin_port = htons(port_number); // specify port number
+  server_addr.sin_family = AF_INET;         
+  server_addr.sin_addr.s_addr = INADDR_ANY; 
+  bzero(&(server_addr.sin_zero),8); 
+
+  // 2. bind: use the socket and associate it with the port number
+  if (bind(sock, (struct sockaddr *)&server_addr, sizeof(struct sockaddr)) == -1) {
+    perror("Unable to bind");
+    exit(1);
+  }
+
+  // 3. listen: indicates that we want to listen to the port to which we bound; second arg is number of allowed connections
+  if (listen(sock, 1) == -1) {
+    perror("Listen");
+    exit(1);
+  }
+      
+  // once you get here, the server is set up and about to start listening
+  printf("\nServer configured to listen on port %d\n", port_number);
+  fflush(stdout);
+
+  // 4. accept: wait here until we get a connection on that port
+  int sin_size = sizeof(struct sockaddr_in);
+  
+  //while true and keep accepting new connection and then have a quit button in browser
+  while (1) {
     int fd = accept(sock, (struct sockaddr *)&client_addr,(socklen_t *)&sin_size);
+
+    // start thread to pass in fd; pthread
     printf("Server got a connection from (%s, %d)\n", inet_ntoa(client_addr.sin_addr),ntohs(client_addr.sin_port));
     // buffer to read data into
     char request[1024];
@@ -123,11 +237,11 @@ void* start_server(void* arg)
     strcpy(request_uri, token+1);
 
     char* reply = create_response(request_uri);
-
   	// 6. send: send the outgoing message (response) over the socket
   	// note that the second argument is a char*, and the third is the number of chars	
   	send(fd, reply, strlen(reply), 0);
 
+    printf("end of server: %s\n", reply);
     free(reply);
     free(request_uri);
     free(request_type);
@@ -142,7 +256,7 @@ void* start_server(void* arg)
   printf("Server shutting down\n");
 
   pthread_exit(NULL);
-} 
+} */
 
 /*helper function to create a response based off of the request_uri received from http request*/
 char* create_response(char* request_uri) {
@@ -152,6 +266,12 @@ char* create_response(char* request_uri) {
   char* current_temp = malloc(sizeof(char)*strlen(msg) + 1);
   strcpy(current_temp, msg);
   pthread_mutex_unlock(&lock);
+
+  calc();
+  float temp = atof(current_temp);
+  float current_max = max; 
+  float current_min = min;
+  float current_avg = avg;
 
   pthread_mutex_lock(&lock_unit);
   char current_unit = unit;
@@ -167,27 +287,18 @@ char* create_response(char* request_uri) {
     reply = read_file(request_uri, reply_header, 5000);
   } else if (strcmp(request_uri, "convert") == 0) {
     current_unit = convert_unit(current_unit);
-    if (send_data(usb, current_unit) != 0) {
-      printf("hello");
-      char* message = "Cannot get reading from sensor";
-      reply = create_json(message);
-    } else {
-      char* new_temp = format_temp(current_temp, current_unit);
-      reply = create_json(new_temp);
-      free(new_temp);
-    }
+    send_data(usb, current_unit);
+    char* new_temp = format_content(temp, current_max, current_min, current_avg, current_unit);
+    reply = create_json(new_temp);
+    free(new_temp);
   } else if (strcmp(request_uri, "standby") == 0) {
-    if (send_data(usb, 'S') != 0) {
-      char* message = "Cannot get reading from sensor";
-      reply = create_json(message);
-    } else {
-      reply = create_json(current_temp);
-    }
+    send_data(usb, 'S');
+    reply = create_json("{\n\t\"display\" : \"standby\"\n}");
   } else if (strcmp(request_uri, "favicon.ico") == 0) {
     reply = malloc(sizeof(char)*(strlen(reply_header)+1));
     strcpy(reply, reply_header);
   } else if (strcmp(request_uri, "gettemp") == 0) {
-    char* new_temp = format_temp(current_temp, current_unit);
+    char* new_temp = format_content(temp, current_max, current_min, current_avg, current_unit);
     reply = create_json(new_temp);
     free(new_temp);
   } else {
@@ -212,12 +323,36 @@ char convert_unit(char current_unit) {
   return current_unit;
 }
 
-char* format_temp(char* current_temp, char current_unit) {
-  char* result = malloc(sizeof(char) * 20);
+void calc() {
+  float temp_arr[360];
+  int i = 0;
+  pthread_mutex_lock(&lock_arr);
+  while (i < 360){
+    temp_arr[i] = temperature[i];
+    i++;
+  }
+  pthread_mutex_unlock(&lock_arr);
+  i = 0;
+  max = -1000.0; min = 1000.0; avg = 0; 
+  int count = 0;
+  float total = 0;
+  while (i < 360){
+    if (temp_arr[i] != 0){
+      count++;
+      if (temp_arr[i] > max)
+        max = temp_arr[i];
+      if (temp_arr[i] < min)
+        min = temp_arr[i];
+      total += temp_arr[i];
+    }
+    i++;
+  }
+  avg = total / count;
+}
 
-  float temperature = atof(current_temp);
+char* format_temp(float temperature, char current_unit) {
+  char* result = malloc(sizeof(char) * 25);
 
-  //Every time a new request comes in the temperature is always in C, need to differentiate units from HTTP request
   if (current_unit == 'F'){
     temperature = temperature * 9 / 5 + 32;
   }
@@ -230,18 +365,45 @@ char* format_temp(char* current_temp, char current_unit) {
   return result;
 }
 
+char* format_content(float current_temp, float current_max, float current_min, float current_avg, char current_unit) {
+  char* result = malloc(sizeof(char) * 150);
+  char* string_temp = format_temp(current_temp, current_unit);
+  char* string_max = format_temp(current_max, current_unit);
+  char* string_min = format_temp(current_min, current_unit);
+  char* string_avg = format_temp(current_avg, current_unit);
+
+  strcat(result, "{\n\t\"display\" : \"");
+
+  if (connected == 1) {
+    strcat(result, string_temp);
+    strcat(result, "\",\n\t\"high\" : \"");
+    strcat(result, string_max);
+    strcat(result, "\",\n\t\"low\" : \"");
+    strcat(result, string_min);
+    strcat(result, "\",\n\t\"avg\" : \"");
+    strcat(result, string_avg);
+    strcat(result, "\",\n\t\"connected\" : \"1");
+    strcat(result, "\"\n}");
+  } else {
+    strcat(result, "disconnected\",\n\t\"connected\" : \"1\"\n}");
+  }
+
+
+  free(string_temp);
+  free(string_max);
+  free(string_min);
+  free(string_avg);
+  return result;
+}
+
+
 /*helper function read file to a string*/
 char* create_json(char* json_content){
   char* reply;
   char* json_header = "HTTP/1.1 200 OK\nContent-Type: application/json\n\n";
-  char* json_start = "{\n\t\"display\" : \"";
-  char* json_end = "\"\n}";
-  reply = malloc(sizeof(char)*(strlen(json_header) + strlen(json_content) + strlen(json_start) + strlen(json_end) + 1));
+  reply = malloc(sizeof(char)*(strlen(json_header) + strlen(json_content)+ 1));
   strcpy(reply, json_header);
-  strcat(reply, json_start);
   strcat(reply, json_content);
-  strcat(reply, json_end);
-
   return reply;
 }
 
@@ -268,45 +430,4 @@ char* read_file(char* filename, char* header, int size){
 }
 
 
-
-int main(int argc, char *argv[])
-{
-  // check the number of arguments
-
-  //a[1] is port number, a[2] is usb port
-  if (argc != 3) {
-      printf("\nUsage: %s [port_number] [usb_number]\n", argv[0]);
-      exit(-1);
-  }
-
-  port = atoi(argv[1]);
-  if (port <= 1024) {
-    printf("\nPlease specify a port number greater than 1024\n");
-    exit(-1);
-  }
-
-  usb = malloc(sizeof(char)*(strlen(argv[2])+1));
-  strcpy(usb, argv[2]);
-
-  if (pthread_mutex_init(&lock, NULL) != 0) return 1;
-  if (pthread_mutex_init(&lock_port, NULL) != 0) return 1;
-  if (pthread_mutex_init(&lock_usb, NULL) != 0) return 1;
-  if (pthread_mutex_init(&lock_unit, NULL) != 0) return 1;
-
-  /* Initialize two threads */
-  pthread_t t1;
-  pthread_t t2;
-
-  /* Create each thread; return 1 if error */
-  if (pthread_create(&t1, NULL, &read_temp, NULL) != 0) return 1;
-  if (pthread_create(&t2, NULL, &start_server, NULL) != 0) return 1;
-  
-  /* Join each thread; return 1 if error */
-  if (pthread_join(t1, NULL) != 0) return 1;
-  if (pthread_join(t2, NULL) != 0) return 1;
-
-  free(usb);
-
-  return 0;
-}
 
