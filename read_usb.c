@@ -5,7 +5,6 @@ extern float temperature[360];
 extern char* usb;
 extern int port;
 extern int connected;
-extern int paused;
 extern int unit;
 extern pthread_mutex_t lock;
 extern pthread_mutex_t lock_usb;
@@ -62,7 +61,7 @@ void* read_temp(void* arg) {
     exit(1);
   }
   else {
-    printf("Successfully opened %s for reading and writing\n", filename);
+    //printf("Successfully opened %s for reading and writing\n", filename);
     sleep(5);
   }
 
@@ -84,12 +83,8 @@ void* read_temp(void* arg) {
       } else {
         connected = 1;
         unit = 'C';
-        if (paused == 1) {
-          char s = 'S';
-          write(fd, &s, 1);
-        } 
         configure(fd);
-        printf("read_data: Successfully opened %s for reading and writing\n", filename);
+        //printf("read_data: Successfully opened %s for reading and writing\n", filename);
       }
     }
 
@@ -143,7 +138,7 @@ int send_data(char* name, int msg) {
     if (connected != 1) {
       connected = 1;
     }
-    printf("send_data: Successfully opened %s for reading and writing\n", filename);
+    //printf("send_data: Successfully opened %s for reading and writing\n", filename);
   }
   configure(fd);
 
@@ -154,7 +149,7 @@ int send_data(char* name, int msg) {
   int x = write(fd, &msg, 1);
 
   if (x == -1) {
-    printf("did not send\n");
+    //printf("did not send\n");
   }
 
   close(fd);
