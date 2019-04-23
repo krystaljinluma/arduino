@@ -15,6 +15,7 @@ extern float max;
 extern float min;
 extern float avg;
 extern int connected;
+extern int standby;
 
 extern pthread_mutex_t lock;
 extern pthread_mutex_t lock_usb;
@@ -35,26 +36,19 @@ void* handle_request(void* fd_arg) {
   // 5. recv: read incoming message (request) into buffer
   int bytes_received = recv(fd,request,1024,0);
   if (bytes_received < 1) {
-    printf("0: didn't receive\n");
   }
   // null-terminate the string
   request[bytes_received] = '\0';
   // print it to standard out
   printf("This is the incoming request:\n%s\n", request);
 
-  printf("1\n");
   char request_cpy[1024];
   request_cpy[0] = '\0';
   strcpy(request_cpy, request);
 
-  printf("2: %s\n", request_cpy);
-
   char* token = strtok(request_cpy, " ");
-  printf("2.1: %s\n", token);
   char* request_type = malloc(sizeof(char)*(strlen(token)+1));
-  printf("2.2\n");
   strcpy(request_type, token);
-  printf("3\n");
 
   token = strtok(NULL, " ");
   char* request_uri = malloc(sizeof(char)*(strlen(token)+1));
@@ -65,7 +59,6 @@ void* handle_request(void* fd_arg) {
   // note that the second argument is a char*, and the third is the number of chars 
   send(fd, reply, strlen(reply), 0);
 
-  printf("end of server: %s\n", reply);
   free(reply);
   free(request_uri);
   free(request_type);
@@ -282,7 +275,7 @@ char* format_content(float current_temp, float current_max, float current_min, f
     strcat(result, "\",\n\t\"connected\" : \"1");
     strcat(result, "\"\n}");
   } else {
-    strcat(result, "disconnected\",\n\t\"connected\" : \"1\"\n}");
+    strcat(result, "disconnected\",\n\t\"connected\" : \"0\"\n}");
   }
 
 

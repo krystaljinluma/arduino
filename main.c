@@ -9,6 +9,7 @@ float max;
 float min;
 float avg;
 int connected = 1;
+int paused = 0;
 char msg[100];
 float temperature[360];
 

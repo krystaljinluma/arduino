@@ -5,6 +5,7 @@ extern float temperature[360];
 extern char* usb;
 extern int port;
 extern int connected;
+extern int paused;
 extern int unit;
 extern pthread_mutex_t lock;
 extern pthread_mutex_t lock_usb;
@@ -72,43 +73,39 @@ void* read_temp(void* arg) {
   */
 
   char buf;
-  //int new_temp = 0;
   int i = 0;
-  //time_t clock = time(0);
 
   
   while (1) {
     if (connected == 0) {
-      //read man7
       fd = open(filename, O_RDWR | O_NOCTTY);
       if (fd < 0) {
         perror("read_data: Could not open file\n");
       } else {
         connected = 1;
         unit = 'C';
+        if (paused == 1) {
+          char s = 'S';
+          write(fd, &s, 1);
+        } 
         configure(fd);
-        sleep(5);
-        //clock = time(0);
         printf("read_data: Successfully opened %s for reading and writing\n", filename);
       }
     }
 
     if (connected == 1) {
-      //new_temp = 0;
       int index = 0;
       int bytes_read = read(fd, &buf, 1);
 
       char temp[100];
 
       while (buf != '\n' && bytes_read != -1) {
-        //new_temp = 1;
         if (bytes_read > 0) {
           temp[index++] = buf;
         }
         bytes_read = read(fd, &buf, 1);
       }
 
-      //if (new_temp == 1) {
       if (bytes_read != -1) {
         pthread_mutex_lock(&lock);
         strcpy(msg, temp);
@@ -117,23 +114,12 @@ void* read_temp(void* arg) {
         float temporary = convert_to_temperature(msg);
         temperature[i % 360] = temporary;
         i++;
-
-        //clock = time(0);
         
         printf("%s\n", temp);
       } else {
         connected = 0;
       }
-      /*
-      time_t current = time(0);
-      if (current-clock > 1) {
-        printf("time out\n");
-        connected = 0;
-      } */
     }
-
-    
-
   }  
 
   close(fd);

@@ -6,24 +6,23 @@
  var low = '';
  var avg = '';
  var standby = false;
- var connected = 0;
+ var connected = 1;
 
 setInterval(getTemp, 1000);
 
 function getTemp() {
-	$.getJSON("http://localhost:3001/gettemp",
-		(data, status) => {
-			display = data.display;
-			high = data.high;
-			low = data.low;
-			avg = data.avg;
-			connected = data.connected;
-			$("#display").html(display);
-			$("#high").html(high);
-			$("#low").html(low);
-			$("#avg").html(avg);
-		});
-	console.log("gettemp");
+	if (standby == false) {
+		$.getJSON("http://localhost:3001/gettemp",
+			(data, status) => {
+				display = data.display;
+				high = data.high;
+				low = data.low;
+				avg = data.avg;
+				connected = data.connected;
+				setDisplay();
+			});
+		console.log("gettemp");
+	}
 }
 
 function reset() {
@@ -31,18 +30,25 @@ function reset() {
 	standby = false;
 }
 
+function setDisplay() {
+	if (connected == 1) {
+		$("#display").html(display);
+		$("#high").html(high);
+		$("#low").html(low);
+		$("#avg").html(avg);
+	} else {
+		$("#display").html(display);
+		$("#high").html(high);
+		$("#low").html(low);
+		$("#avg").html(avg);
+	}
+}
+
+
 /*Actions:*/
 reset();
 
 /*Button clicks:*/
-$("#update").click(() => {
-	if (standby == false) {
-		getTemp();
-		console.log("update clicked");
-	} else {
-		console.log("update clicked but on standby");
-	}
-});
 
 $("#unit").click(() => {
 	if (standby == false) {
@@ -52,10 +58,7 @@ $("#unit").click(() => {
 				high = data.high;
 				low = data.low;
 				avg = data.avg;
-				$("#display").html(display);
-				$("#high").html(high);
-				$("#low").html(low);
-				$("#avg").html(avg);
+				setDisplay();
 			});
 		console.log("units clicked");
 	} else {
