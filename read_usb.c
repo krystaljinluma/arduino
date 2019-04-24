@@ -6,11 +6,14 @@ extern char* usb;
 extern int port;
 extern int connected;
 extern int unit;
+extern int quit;
 extern pthread_mutex_t lock;
 extern pthread_mutex_t lock_usb;
 extern pthread_mutex_t lock_port;
 extern pthread_mutex_t lock_usb;
-
+extern pthread_mutex_t lock_quit;
+extern pthread_mutex_t lock_unit;
+extern pthread_mutex_t lock_connected;
 /*
 This code configures the file descriptor for use as a serial port.
 */
@@ -62,7 +65,6 @@ void* read_temp(void* arg) {
   }
   else {
     //printf("Successfully opened %s for reading and writing\n", filename);
-    sleep(5);
   }
 
   configure(fd);
@@ -76,19 +78,37 @@ void* read_temp(void* arg) {
 
   
   while (1) {
-    if (connected == 0) {
+    pthread_mutex_lock(&lock_quit);
+    int current_quit = quit;
+    pthread_mutex_unlock(&lock_quit);
+
+    if (current_quit == 1) {
+      printf("quit read_usb\n");
+      break;
+    }
+
+    pthread_mutex_lock(&lock_connected);
+    int current_connected = connected;
+    pthread_mutex_unlock(&lock_connected);
+
+    if (current_connected == 0) {
       fd = open(filename, O_RDWR | O_NOCTTY);
       if (fd < 0) {
         perror("read_data: Could not open file\n");
       } else {
+        current_connected = 1;
+        pthread_mutex_lock(&lock_connected);
         connected = 1;
+        pthread_mutex_unlock(&lock_connected);
+        pthread_mutex_lock(&lock_unit);
         unit = 'C';
+        pthread_mutex_unlock(&lock_unit);
         configure(fd);
         //printf("read_data: Successfully opened %s for reading and writing\n", filename);
       }
     }
 
-    if (connected == 1) {
+    if (current_connected == 1) {
       int index = 0;
       int bytes_read = read(fd, &buf, 1);
 
@@ -112,7 +132,9 @@ void* read_temp(void* arg) {
         
         printf("%s\n", temp);
       } else {
+        pthread_mutex_lock(&lock_connected);
         connected = 0;
+        pthread_mutex_unlock(&lock_connected);
       }
     }
   }  
@@ -131,25 +153,15 @@ int send_data(char* name, int msg) {
   
   if (fd < 0) {
     perror("send_data: Could not open file\n");
-    connected = 0;
     return 1;
   }
-  else {
-    if (connected != 1) {
-      connected = 1;
-    }
-    //printf("send_data: Successfully opened %s for reading and writing\n", filename);
-  }
+  
   configure(fd);
-
-  /*
-    Write the rest of the program below, using the read and write system calls.
-  */
 
   int x = write(fd, &msg, 1);
 
   if (x == -1) {
-    //printf("did not send\n");
+    printf("did not send\n");
   }
 
   close(fd);

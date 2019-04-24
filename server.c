@@ -15,32 +15,34 @@ extern float max;
 extern float min;
 extern float avg;
 extern int connected;
-extern int standby;
+extern int quit;
 
 extern pthread_mutex_t lock;
 extern pthread_mutex_t lock_usb;
 extern pthread_mutex_t lock_port;
 extern pthread_mutex_t lock_arr;
 extern pthread_mutex_t lock_unit;
+extern pthread_mutex_t lock_quit;
+extern pthread_mutex_t lock_connected;
 
 extern char msg[100];
 extern float temperature[360];
 
 void* handle_request(void* fd_arg) {
-  int fd = *(int*) fd_arg;
   
+  int fd = *(int*) fd_arg;
+
   // buffer to read data into
   char request[1024];
   request[0] = '\0';
 
   // 5. recv: read incoming message (request) into buffer
   int bytes_received = recv(fd,request,1024,0);
-  if (bytes_received < 1) {
-  }
+
   // null-terminate the string
   request[bytes_received] = '\0';
   // print it to standard out
-  printf("This is the incoming request:\n%s\n", request);
+  //printf("This is the incoming request:\n%s\n", request);
 
   char request_cpy[1024];
   request_cpy[0] = '\0';
@@ -65,7 +67,7 @@ void* handle_request(void* fd_arg) {
 
   // 7. close: close the connection
   close(fd);
-  printf("Server closed connection\n");
+  //printf("Server closed connection\n");
   pthread_exit(&fd);
 }
 
@@ -115,7 +117,7 @@ void* start_server(void* arg)
   }
       
   // once you get here, the server is set up and about to start listening
-  printf("\nServer configured to listen on port %d\n", port_number);
+  //printf("\nServer configured to listen on port %d\n", port_number);
   fflush(stdout);
 
   // 4. accept: wait here until we get a connection on that port
@@ -126,7 +128,6 @@ void* start_server(void* arg)
     int* fd = malloc(sizeof(int));
     *fd = accept(sock, (struct sockaddr *)&client_addr,(socklen_t *)&sin_size);
 
-    printf("FD: %d\n", *fd);
     //printf("Server got a connection from (%s, %d)\n", inet_ntoa(client_addr.sin_addr),ntohs(client_addr.sin_port));
 
     // start thread to pass in fd; pthread
@@ -138,11 +139,21 @@ void* start_server(void* arg)
     pthread_detach(t);
 
     free(fd);
+
+
+    pthread_mutex_lock(&lock_quit);
+    int current_quit = quit;
+    pthread_mutex_unlock(&lock_quit);
+
+    if (current_quit == 1) {
+      printf("quit start_server\n");
+      break;
+    }
   }
 
   // 8. close: close the socket
   close(sock);
-  printf("Server shutting down\n");
+  //printf("Server shutting down\n");
 
   pthread_exit(NULL);
 } 
@@ -264,7 +275,11 @@ char* format_content(float current_temp, float current_max, float current_min, f
 
   strcat(result, "{\n\t\"display\" : \"");
 
-  if (connected == 1) {
+  pthread_mutex_lock(&lock_connected);
+  int current_connected = connected;
+  pthread_mutex_unlock(&lock_connected);
+
+  if (current_connected == 1) {
     strcat(result, string_temp);
     strcat(result, "\",\n\t\"high\" : \"");
     strcat(result, string_max);
@@ -317,6 +332,21 @@ char* read_file(char* filename, char* header, int size){
   strcat(reply, file_content);
 
   return reply;
+}
+
+void* read_quit(void* arg) {
+  while(1) {
+    char input[100];
+    if (fgets(input, 100*sizeof(char), stdin)) {
+      if (strcmp(input, "q\n") == 0) {
+        pthread_mutex_lock(&lock_quit);
+        quit = 1;
+        pthread_mutex_unlock(&lock_quit);
+        printf("exit read_quit\n");
+        pthread_exit(NULL);
+      }
+    }
+  }
 }
 
 
