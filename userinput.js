@@ -19,6 +19,7 @@ function getTemp() {
 				low = data.low;
 				avg = data.avg;
 				connected = data.connected;
+				console.log(connected);
 				setDisplay();
 			});
 		console.log("gettemp");
@@ -67,15 +68,19 @@ $("#unit").click(() => {
 });
 
 $("#standby").click(() => {
-	$.getJSON("http://localhost:3001/standby",
-		(data, status) => {
-			if (standby == true) {
-				reset();
-			} else {
-				standby = true;
-				$("#display").html("standby");
-			}
-		});
-	console.log("standby clicked");
+	if (connected == 1) { 
+		$.getJSON("http://localhost:3001/standby",
+			(data, status) => {
+				if (standby == true) {
+					reset();
+				} else {
+					standby = true;
+					$("#display").html("standby");
+				}
+			});
+		console.log("standby clicked");
+	} else {
+		console.log("standby clicked but disconnected");
+	}
 });
 
