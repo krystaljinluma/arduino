@@ -26,7 +26,7 @@ extern pthread_mutex_t lock_quit;
 extern pthread_mutex_t lock_connected;
 
 extern char msg[100];
-extern float temperature[360];
+extern float temperature[3600];
 
 void* handle_request(void* fd_arg) {
   

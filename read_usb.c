@@ -1,7 +1,7 @@
 #include "read_usb.h"
 
 extern char msg[100];
-extern float temperature[360];
+extern float temperature[3600];
 extern char* usb;
 extern int port;
 extern int connected;
