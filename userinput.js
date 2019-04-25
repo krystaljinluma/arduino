@@ -84,3 +84,8 @@ $("#standby").click(() => {
 	}
 });
 
+$("#updatethreshold").click(() => {
+	var x = document.getElementById("thresholdinput").value;
+ /* need to send x to server*/
+});
+
