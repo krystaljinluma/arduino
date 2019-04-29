@@ -59,7 +59,7 @@ void* read_temp(void* arg) {
     int current_quit = quit;
     pthread_mutex_unlock(&lock_quit);
     if (current_quit == 1) {
-      printf("quit read_usb\n");
+      printf("Exit read_usb()\n");
       break;
     }
 
@@ -130,7 +130,7 @@ int send_data(char* name, int msg) {
   /* Open file descriptor to send data. */
   int fd = open(name, O_RDWR | O_NOCTTY | O_NDELAY);
   if (fd < 0) {
-    perror("send_data: Could not open file\n");
+    //perror("send_data: Could not open file\n");
     return 1;
   }
   configure(fd);
@@ -150,7 +150,7 @@ int send_threshold(char* name, int msg, int hot, int cold) {
   /* Open file descriptor */
   int fd = open(name, O_RDWR | O_NOCTTY | O_NDELAY);
   if (fd < 0) {
-    perror("send_data: Could not open file\n");
+    //perror("send_data: Could not open file\n");
     return 1;
   }
   configure(fd);

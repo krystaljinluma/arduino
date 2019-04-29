@@ -11,6 +11,8 @@
  var lowThreshold = 23;
  var visualization = '';
 
+
+/*Actions*/
 setInterval(getTemp, 1000);
 
 String.prototype.replaceAll = function(search, replacement) {
@@ -21,7 +23,8 @@ String.prototype.replaceAll = function(search, replacement) {
 function drawChart() {
   var chart = new CanvasJS.Chart("chartContainer", {
     title:{
-      text: "Recent Temperature Readings"              
+      text: "Recent Temperature Readings"
+      //fontName: helvetica;
     },
     data: [              
     {
@@ -35,30 +38,25 @@ function drawChart() {
 }
 
 function getTemp() {
-	if (standby == false) {
-		var resultingPromise = $.get("http://localhost:3001/gettemp",
-			(data, status) => {
-				data = JSON.parse(data);
-				display = data.display;
-				high = data.high;
-				low = data.low;
-				avg = data.avg;
-				connected = data.connected;
-				data.visualization = data.visualization.replace("[ , {", "[ {").replaceAll('y', '"y"');
-				data.visualization = JSON.parse(data.visualization);
-				visualization = data.visualization;
-				drawChart();
-				setDisplay();
-			});
-		resultingPromise.fail((err) => {
-				console.log("ERR ", err);
-				connected = 0;
-				display = "disconnected";
-				setDisplay();
+	var resultingPromise = $.get("http://localhost:3001/gettemp",
+		(data, status) => {
+			data = JSON.parse(data);
+			display = data.display;
+			high = data.high;
+			low = data.low;
+			avg = data.avg;
+			if (connected == 0 && data.connected == 1) standby = false;
+			connected = data.connected;
+			//console.log(connected);
+			data.visualization = data.visualization.replace("[ , {", "[ {").replaceAll('y', '"y"');
+			data.visualization = JSON.parse(data.visualization);
+			visualization = data.visualization;
 		});
-		console.log(visualization);
-		console.log("gettemp");
-	}
+	resultingPromise.fail((err) => {
+			console.log("ERR ", err);
+	});
+	setDisplay();
+	console.log("gettemp");
 }
 
 function reset() {
@@ -67,25 +65,24 @@ function reset() {
 }
 
 function setDisplay() {
-	if (connected == 1) {
+	if (connected == 1 && standby == false) {
 		$("#display").html(display);
 		$("#high").html(high);
 		$("#low").html(low);
 		$("#avg").html(avg);
+		drawChart();
+	} else if (connected == 1 && standby == true) {
+		$("#display").html("standby");
 	} else {
-		$("#display").html(display);
-		$("#high").html(high);
-		$("#low").html(low);
-		$("#avg").html(avg);
+		$("#display").html("disconnected");
 	}
 }
 
 
 /*Actions:*/
-reset();
+//reset();
 
 /*Button clicks:*/
-
 $("#unit").click(() => {
 	if (standby == false) {
 		$.getJSON("http://localhost:3001/convert", 

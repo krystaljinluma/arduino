@@ -11,7 +11,7 @@ float avg;
 int connected = 0;
 int quit = 0;;
 char msg[100];
-float temperature[360];
+float temperature[3600];
 
 /*Locks*/
 pthread_mutex_t lock;
@@ -21,6 +21,7 @@ pthread_mutex_t lock_usb;
 pthread_mutex_t lock_arr;
 pthread_mutex_t lock_quit;
 pthread_mutex_t lock_connected;
+pthread_mutex_t lock_vals;
 
 
 /*Main Method*/
@@ -50,6 +51,7 @@ int main(int argc, char *argv[])
   if (pthread_mutex_init(&lock_arr, NULL) != 0) return 1;
   if (pthread_mutex_init(&lock_quit, NULL) != 0) return 1;
   if (pthread_mutex_init(&lock_connected, NULL) != 0) return 1;
+  if (pthread_mutex_init(&lock_vals, NULL) != 0) return 1;
 
   /* Initialize two threads */
   pthread_t t1;
@@ -66,7 +68,7 @@ int main(int argc, char *argv[])
   if (pthread_join(t2, NULL) != 0) return 1;
   if (pthread_join(t3, NULL) != 0) return 1;
 
-  printf("exit main\n");
+  printf("Exit main()\n");
   free(usb);
 
   return 0;
