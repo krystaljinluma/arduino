@@ -15,3 +15,4 @@ int read_ard(char* filename);
 float convert_to_temperature(char* msg);
 void* read_temp(void* arg);
 int send_data(char* name, int msg);
+int send_threshold(char* name, int msg, int hot, int cold) ;

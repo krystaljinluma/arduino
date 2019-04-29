@@ -77,6 +77,8 @@ void loop()
   bool IsPositive;
   bool IsCelsius = true;
   bool InStandby = false;
+  int hot = 27;
+  int cold = 23;
   
   /* Configure 7-Segment to 12mA segment output current, Dynamic mode, 
      and Digits 1, 2, 3 AND 4 are NOT blanked */
@@ -116,6 +118,8 @@ void loop()
     Wire.endTransmission();
     delay (250);
   }
+
+  digitalWrite(GREEN, HIGH); // initialize to green
   
   while (1)
   {
@@ -137,6 +141,18 @@ void loop()
         } else {
           InStandby = true;
         }
+      } else if (incomingByte == 84) {
+        incomingByte = Serial.read(); // get hot
+        hot = incomingByte;
+        incomingByte = Serial.read(); //get cold
+        cold = incomingByte;
+      } else if (incomingByte == 77) {
+          Serial.print("Print MSG:");
+          Send7SEG(4,0x82);
+          Send7SEG(3,0x82);
+          Send7SEG(2,0x06);
+          Send7SEG(1,0x76);
+          
       }
   
       // say what you got:
@@ -153,7 +169,7 @@ void loop()
 
     if (!InStandby) {
       /* Update RGB LED.*/
-      UpdateRGB (Temperature_H);
+      UpdateRGB2 (Temperature_H, hot, cold);
 
       if (IsCelsius) {
         /* Display temperature on the 7-Segment */
@@ -299,6 +315,26 @@ void UpdateRGB (byte Temperature_H)
     digitalWrite(BLUE, HIGH);
   }
   else if (Temperature_H >= HOT)
+  {
+    digitalWrite(RED, HIGH);
+  }
+  else 
+  {
+    digitalWrite(GREEN, HIGH);
+  }
+}
+
+void UpdateRGB2 (byte Temperature_H, int hot, int cold)
+{
+  digitalWrite(RED, LOW);
+  digitalWrite(GREEN, LOW);
+  digitalWrite(BLUE, LOW);        /* Turn off all LEDs. */
+  
+  if (Temperature_H <= cold)
+  {
+    digitalWrite(BLUE, HIGH);
+  }
+  else if (Temperature_H >= hot)
   {
     digitalWrite(RED, HIGH);
   }

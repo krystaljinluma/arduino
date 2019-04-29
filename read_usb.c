@@ -7,6 +7,7 @@ extern int port;
 extern int connected;
 extern int unit;
 extern int quit;
+
 extern pthread_mutex_t lock;
 extern pthread_mutex_t lock_usb;
 extern pthread_mutex_t lock_port;
@@ -75,7 +76,6 @@ void* read_temp(void* arg) {
 
   char buf;
   int i = 0;
-
   
   while (1) {
     pthread_mutex_lock(&lock_quit);
@@ -130,7 +130,8 @@ void* read_temp(void* arg) {
         temperature[i % 360] = temporary;
         i++;
         
-        printf("%s\n", temp);
+
+        //printf("%s\n", temp);
       } else {
         pthread_mutex_lock(&lock_connected);
         connected = 0;
@@ -163,6 +164,30 @@ int send_data(char* name, int msg) {
   if (x == -1) {
     printf("did not send\n");
   }
+
+  close(fd);
+  return 0;
+}
+
+int send_threshold(char* name, int msg, int hot, int cold) {
+  char* filename = (char*) name; 
+
+  // try to open the file for reading and writing
+  // you may need to change the flags depending on your platform
+  int fd = open(filename, O_RDWR | O_NOCTTY | O_NDELAY);
+  
+  if (fd < 0) {
+    perror("send_data: Could not open file\n");
+    return 1;
+  }
+  
+  configure(fd);
+
+  write(fd, &msg, 1);
+  write(fd, &hot, 1);
+  write(fd, &cold, 1);
+
+  printf("%d | %d\n", hot, cold);
 
   close(fd);
   return 0;

@@ -7,6 +7,8 @@
  var avg = '';
  var standby = false;
  var connected = 1;
+ var highThreshold = 27;
+ var lowThreshold = 23;
 
 setInterval(getTemp, 1000);
 
@@ -84,3 +86,51 @@ $("#standby").click(() => {
 	}
 });
 
+$("#msg").click(() => {
+	if (connected == 1 && standby == false) { 
+		$.getJSON("http://localhost:3001/sendmsg",
+			(data, status) => {
+			});
+		console.log("send message");
+	} else {
+		console.log("msg clicked but disconnected or standby");
+	}
+});
+
+$("#highButton").click(() => {
+	if ($("#highInput").val() > lowThreshold && $("#highInput").val() != '') {
+		highThreshold = $("#highInput").val();
+		var uri = "http://localhost:3001/threshold?high=" + highThreshold + "&low=" + lowThreshold;
+		console.log(uri);
+		if (standby == false && connected ==1) {
+			$.getJSON(uri, 
+				(data, status) => {
+					// do nothing
+				});
+			console.log("highButton clicked");
+		} else {
+			console.log("highButton clicked but on standby or disconnected");
+		}
+	} else {
+		console.log("error, high threshold should be larger than low threshold");
+	}
+});
+
+$("#lowButton").click(() => {
+	if ($("#lowInput").val() < highThreshold && $("#lowInput").val() != '') {
+		lowThreshold = $("#lowInput").val();
+		var uri = "http://localhost:3001/threshold?high=" + highThreshold + "&low=" + lowThreshold;
+		console.log(uri);
+		if (standby == false && connected ==1) {
+			$.getJSON(uri, 
+				(data, status) => {
+					// do nothing
+				});
+			console.log("lowButton clicked");
+		} else {
+			console.log("lowButton clicked but on standby or disconnected");
+		}
+	} else {
+		console.log("error, low threshold should be smaller than high threshold");
+	}
+});

@@ -202,11 +202,31 @@ char* create_response(char* request_uri) {
     char* new_temp = format_content(temp, current_max, current_min, current_avg, current_unit);
     reply = create_json(new_temp);
     free(new_temp);
+  } else if (strstr(request_uri, "threshold") != NULL) {  //checkstring
+    reply = malloc(1);
+    handleThreshold(request_uri, usb);
+  } else if (strcmp(request_uri, "sendmsg") == 0) {
+    reply = malloc(1);
+    send_data(usb, 'M');
   } else {
     reply = malloc(1);
   }
   free(current_temp);
   return reply;
+}
+
+void handleThreshold(char* request_uri, char* usb_port) {
+  char* token = strtok(request_uri, "?");
+  token = strtok(NULL, "=");
+  token = strtok(NULL, "&");
+  int hot = atoi(token);
+  token = strtok(NULL, "=");
+  token = strtok(NULL, "&");
+  int cold = atoi(token);
+
+  printf("%d\n", hot);
+
+  send_threshold(usb, 'T', hot, cold);
 }
 
 char convert_unit(char current_unit) {
@@ -292,7 +312,6 @@ char* format_content(float current_temp, float current_max, float current_min, f
   } else {
     strcat(result, "disconnected\",\n\t\"connected\" : \"0\"\n}");
   }
-
 
   free(string_temp);
   free(string_max);

@@ -22,3 +22,5 @@ char convert_unit(char current_unit);
 char* format_content(float current_temp, float current_max, float current_min, float current_avg, char current_unit);
 void calc();
 void* handle_request(void* fd_arg);
+void* read_quit(void* arg);
+void handleThreshold(char* request_uri, char* usb_port);
