@@ -94,7 +94,7 @@ void* read_temp(void* arg) {
     if (current_connected == 0) {
       fd = open(filename, O_RDWR | O_NOCTTY);
       if (fd < 0) {
-        perror("read_data: Could not open file\n");
+        //perror("read_data: Could not open file\n");
       } else {
         current_connected = 1;
         pthread_mutex_lock(&lock_connected);

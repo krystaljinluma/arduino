@@ -287,19 +287,49 @@ char* format_temp(float temperature, char current_unit) {
 }
 
 char* format_content(float current_temp, float current_max, float current_min, float current_avg, char current_unit) {
-  char* result = malloc(sizeof(char) * 150);
+  char* result = malloc(sizeof(char) * 8000);
+  result[0] = '\0';
   char* string_temp = format_temp(current_temp, current_unit);
   char* string_max = format_temp(current_max, current_unit);
   char* string_min = format_temp(current_min, current_unit);
   char* string_avg = format_temp(current_avg, current_unit);
+  
+  float temp_arr[360];
+  int i = 0;
+  pthread_mutex_lock(&lock_arr);
+  while (i < 360){
+    temp_arr[i] = temperature[i];
+    i++;
+  }
+  pthread_mutex_unlock(&lock_arr);
+  char* visualization = malloc(sizeof(char) * 7200);
+  visualization[0] = '\0';
+  char* prefix = "{ y: ";
+  char* t = malloc(sizeof(char) * 8);
+  t[0] = '\0';
+
+  strcat(visualization, "[ ");
+
+
+  for (int i = 0; i < 360; i++){
+
+    if (temp_arr[i] <= 40 && temp_arr[i] >= 10){
+      if (i != 0) {
+        strcat(visualization, ", ");
+
+      }
+      strcat(visualization, prefix);
+      sprintf(t, "%.2f", temp_arr[i]);
+        strcat(visualization, t);
+        strcat(visualization, " }");
+    }
+
+  }
+    strcat(visualization, "] ");
 
   strcat(result, "{\n\t\"display\" : \"");
 
-  pthread_mutex_lock(&lock_connected);
-  int current_connected = connected;
-  pthread_mutex_unlock(&lock_connected);
-
-  if (current_connected == 1) {
+  if (connected == 1) {
     strcat(result, string_temp);
     strcat(result, "\",\n\t\"high\" : \"");
     strcat(result, string_max);
@@ -308,11 +338,16 @@ char* format_content(float current_temp, float current_max, float current_min, f
     strcat(result, "\",\n\t\"avg\" : \"");
     strcat(result, string_avg);
     strcat(result, "\",\n\t\"connected\" : \"1");
+    strcat(result, "\",\n\t\"visualization\" : \""); 
+    // printf("%s end",visualization);   
+    strcat(result, visualization);
     strcat(result, "\"\n}");
   } else {
     strcat(result, "disconnected\",\n\t\"connected\" : \"0\"\n}");
   }
 
+  free(visualization);
+  free(t);
   free(string_temp);
   free(string_max);
   free(string_min);
@@ -324,7 +359,7 @@ char* format_content(float current_temp, float current_max, float current_min, f
 /*helper function read file to a string*/
 char* create_json(char* json_content){
   char* reply;
-  char* json_header = "HTTP/1.1 200 OK\nContent-Type: application/json\n\n";
+  char* json_header = "HTTP/1.1 200 OK\nContent-Type: text/html\n\n";
   reply = malloc(sizeof(char)*(strlen(json_header) + strlen(json_content)+ 1));
   strcpy(reply, json_header);
   strcat(reply, json_content);

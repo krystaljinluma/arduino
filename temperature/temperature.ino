@@ -147,12 +147,11 @@ void loop()
         incomingByte = Serial.read(); //get cold
         cold = incomingByte;
       } else if (incomingByte == 77) {
-          Serial.print("Print MSG:");
-          Send7SEG(4,0x82);
-          Send7SEG(3,0x82);
-          Send7SEG(2,0x06);
-          Send7SEG(1,0x76);
-          
+          Send7SEG(4,0x76);
+          Send7SEG(3,0x06);
+          Send7SEG(2,0x82);
+          Send7SEG(1,0x82);
+          delay(1000);
       }
   
       // say what you got:

@@ -9,21 +9,53 @@
  var connected = 1;
  var highThreshold = 27;
  var lowThreshold = 23;
+ var visualization = '';
 
 setInterval(getTemp, 1000);
 
+String.prototype.replaceAll = function(search, replacement) {
+    var target = this;
+    return target.replace(new RegExp(search, 'g'), replacement);
+};
+
+function drawChart() {
+  var chart = new CanvasJS.Chart("chartContainer", {
+    title:{
+      text: "Recent Temperature Readings"              
+    },
+    data: [              
+    {
+      type: "line",
+      dataPoints:
+        visualization
+    }
+    ]
+  });
+  chart.render();
+}
+
 function getTemp() {
 	if (standby == false) {
-		$.getJSON("http://localhost:3001/gettemp",
+		var resultingPromise = $.get("http://localhost:3001/gettemp",
 			(data, status) => {
+				data = JSON.parse(data);
+				data.visualization = data.visualization.replace("[ , {", "[ {").replaceAll('y', '"y"');
+
+				data.visualization = JSON.parse(data.visualization);
 				display = data.display;
 				high = data.high;
 				low = data.low;
 				avg = data.avg;
 				connected = data.connected;
-				console.log(connected);
+				visualization = data.visualization;
+				drawChart();
 				setDisplay();
 			});
+		resultingPromise.fail((err) => {
+				console.log("ERR ", err);
+
+		});
+		console.log(visualization);
 		console.log("gettemp");
 	}
 }
