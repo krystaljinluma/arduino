@@ -39,21 +39,22 @@ function getTemp() {
 		var resultingPromise = $.get("http://localhost:3001/gettemp",
 			(data, status) => {
 				data = JSON.parse(data);
-				data.visualization = data.visualization.replace("[ , {", "[ {").replaceAll('y', '"y"');
-
-				data.visualization = JSON.parse(data.visualization);
 				display = data.display;
 				high = data.high;
 				low = data.low;
 				avg = data.avg;
 				connected = data.connected;
+				data.visualization = data.visualization.replace("[ , {", "[ {").replaceAll('y', '"y"');
+				data.visualization = JSON.parse(data.visualization);
 				visualization = data.visualization;
 				drawChart();
 				setDisplay();
 			});
 		resultingPromise.fail((err) => {
 				console.log("ERR ", err);
-
+				connected = 0;
+				display = "disconnected";
+				setDisplay();
 		});
 		console.log(visualization);
 		console.log("gettemp");

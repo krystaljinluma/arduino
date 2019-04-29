@@ -28,59 +28,12 @@ extern pthread_mutex_t lock_connected;
 extern char msg[100];
 extern float temperature[3600];
 
-void* handle_request(void* fd_arg) {
-  
-  int fd = *(int*) fd_arg;
-
-  // buffer to read data into
-  char request[1024];
-  request[0] = '\0';
-
-  // 5. recv: read incoming message (request) into buffer
-  int bytes_received = recv(fd,request,1024,0);
-
-  // null-terminate the string
-  request[bytes_received] = '\0';
-  // print it to standard out
-  //printf("This is the incoming request:\n%s\n", request);
-
-  char request_cpy[1024];
-  request_cpy[0] = '\0';
-  strcpy(request_cpy, request);
-
-  char* token = strtok(request_cpy, " ");
-  char* request_type = malloc(sizeof(char)*(strlen(token)+1));
-  strcpy(request_type, token);
-
-  token = strtok(NULL, " ");
-  char* request_uri = malloc(sizeof(char)*(strlen(token)+1));
-  strcpy(request_uri, token+1);
-
-  char* reply = create_response(request_uri);
-  // 6. send: send the outgoing message (response) over the socket
-  // note that the second argument is a char*, and the third is the number of chars 
-  send(fd, reply, strlen(reply), 0);
-
-  free(reply);
-  free(request_uri);
-  free(request_type);
-
-  // 7. close: close the connection
-  close(fd);
-  //printf("Server closed connection\n");
-  pthread_exit(&fd);
-}
-
+/* Start server function starts connection to browsers. Opens up a fd, listens, and accepts requests from browser */
 void* start_server(void* arg)
 {
   pthread_mutex_lock(&lock_port);
   int port_number = port;
   pthread_mutex_unlock(&lock_port);
-
-  pthread_mutex_lock(&lock_usb);
-  char* usb_file = malloc(sizeof(char)*strlen(usb) + 1);
-  strcpy(usb_file, usb);
-  pthread_mutex_unlock(&lock_usb);
 
   // structs to represent the server and client
   struct sockaddr_in server_addr,client_addr;    
@@ -158,10 +111,59 @@ void* start_server(void* arg)
   pthread_exit(NULL);
 } 
 
+/* Helper function to help handle incoming requests from browsers. Depending on the request_uri, method determines
+ what to send back to browser. Spawned from threads in start_server to handle multiple incoming requests. */
+void* handle_request(void* fd_arg) {
+  
+  int fd = *(int*) fd_arg;
+
+  // buffer to read data into
+  char request[1024];
+  request[0] = '\0';
+
+  // 5. recv: read incoming message (request) into buffer
+  int bytes_received = recv(fd,request,1024,0);
+
+  // null-terminate the string
+  request[bytes_received] = '\0';
+  // print it to standard out
+  //printf("This is the incoming request:\n%s\n", request);
+
+  char request_cpy[1024];
+  request_cpy[0] = '\0';
+  strcpy(request_cpy, request);
+
+  char* token = strtok(request_cpy, " ");
+  char* request_type = malloc(sizeof(char)*(strlen(token)+1));
+  strcpy(request_type, token);
+
+  token = strtok(NULL, " ");
+  char* request_uri = malloc(sizeof(char)*(strlen(token)+1));
+  strcpy(request_uri, token+1);
+
+  char* reply = create_response(request_uri);
+  // 6. send: send the outgoing message (response) over the socket
+  // note that the second argument is a char*, and the third is the number of chars 
+  send(fd, reply, strlen(reply), 0);
+
+  free(reply);
+  free(request_uri);
+  free(request_type);
+
+  // 7. close: close the connection
+  close(fd);
+  //printf("Server closed connection\n");
+  pthread_exit(&fd);
+}
 
 /*helper function to create a response based off of the request_uri received from http request*/
 char* create_response(char* request_uri) {
   char* reply;
+
+  pthread_mutex_lock(&lock_usb);
+  char* usb_file = malloc(sizeof(char)*strlen(usb) + 1);
+  strcpy(usb_file, usb);
+  pthread_mutex_unlock(&lock_usb);
 
   pthread_mutex_lock(&lock);
   char* current_temp = malloc(sizeof(char)*strlen(msg) + 1);
@@ -188,12 +190,12 @@ char* create_response(char* request_uri) {
     reply = read_file(request_uri, reply_header, 5000);
   } else if (strcmp(request_uri, "convert") == 0) {
     current_unit = convert_unit(current_unit);
-    send_data(usb, current_unit);
+    send_data(usb_file, current_unit);
     char* new_temp = format_content(temp, current_max, current_min, current_avg, current_unit);
     reply = create_json(new_temp);
     free(new_temp);
   } else if (strcmp(request_uri, "standby") == 0) {
-    send_data(usb, 'S');
+    send_data(usb_file, 'S');
     reply = create_json("{\n\t\"display\" : \"standby\"\n}");
   } else if (strcmp(request_uri, "favicon.ico") == 0) {
     reply = malloc(sizeof(char)*(strlen(reply_header)+1));
@@ -204,17 +206,20 @@ char* create_response(char* request_uri) {
     free(new_temp);
   } else if (strstr(request_uri, "threshold") != NULL) {  //checkstring
     reply = malloc(1);
-    handleThreshold(request_uri, usb);
+    handleThreshold(request_uri, usb_file);
   } else if (strcmp(request_uri, "sendmsg") == 0) {
     reply = malloc(1);
-    send_data(usb, 'M');
+    send_data(usb_file, 'M');
   } else {
     reply = malloc(1);
   }
   free(current_temp);
+  free(usb_file);
   return reply;
 }
 
+/* Helper function to hanlde changes to temp thresholds. Sends the temperature thresholds set by user
+in browser and sends to ardunio */
 void handleThreshold(char* request_uri, char* usb_port) {
   char* token = strtok(request_uri, "?");
   token = strtok(NULL, "=");
@@ -226,9 +231,10 @@ void handleThreshold(char* request_uri, char* usb_port) {
 
   printf("%d\n", hot);
 
-  send_threshold(usb, 'T', hot, cold);
+  send_threshold(usb_port, 'T', hot, cold);
 }
 
+/* Helper function to convert between units based off browser information */
 char convert_unit(char current_unit) {
   if (current_unit == 'C'){
     current_unit = 'F';
@@ -244,6 +250,7 @@ char convert_unit(char current_unit) {
   return current_unit;
 }
 
+/* Helper function to calculate max, min, and avg temperatures */
 void calc() {
   float temp_arr[360];
   int i = 0;
@@ -271,6 +278,7 @@ void calc() {
   avg = total / count;
 }
 
+/* Helper function to format temperatures to send to browser. If units are in F, convert temp to F*/
 char* format_temp(float temperature, char current_unit) {
   char* result = malloc(sizeof(char) * 25);
 
@@ -286,6 +294,7 @@ char* format_temp(float temperature, char current_unit) {
   return result;
 }
 
+/* Helper function to format data fields of JSON to send to browser */
 char* format_content(float current_temp, float current_max, float current_min, float current_avg, char current_unit) {
   char* result = malloc(sizeof(char) * 8000);
   result[0] = '\0';
@@ -329,7 +338,11 @@ char* format_content(float current_temp, float current_max, float current_min, f
 
   strcat(result, "{\n\t\"display\" : \"");
 
-  if (connected == 1) {
+  pthread_mutex_lock(&lock_connected);
+  int current_connected = connected;
+  pthread_mutex_unlock(&lock_connected);
+
+  if (current_connected == 1) {
     strcat(result, string_temp);
     strcat(result, "\",\n\t\"high\" : \"");
     strcat(result, string_max);
@@ -355,8 +368,7 @@ char* format_content(float current_temp, float current_max, float current_min, f
   return result;
 }
 
-
-/*helper function read file to a string*/
+/* Helper function to create a JSON object to send back to brower*/
 char* create_json(char* json_content){
   char* reply;
   char* json_header = "HTTP/1.1 200 OK\nContent-Type: text/html\n\n";
@@ -366,7 +378,7 @@ char* create_json(char* json_content){
   return reply;
 }
 
-/*helper function read file to a string*/
+/*helper function read file to a string to send back to browser */
 char* read_file(char* filename, char* header, int size){
   char file_content[size];
   char file_line[size];
@@ -388,6 +400,7 @@ char* read_file(char* filename, char* header, int size){
   return reply;
 }
 
+/* Helper function to read in q from user in terminal to terminate program. */
 void* read_quit(void* arg) {
   while(1) {
     char input[100];

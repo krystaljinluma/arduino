@@ -8,7 +8,7 @@ char* usb;
 float max;
 float min;
 float avg;
-int connected = 1;
+int connected = 0;
 int quit = 0;;
 char msg[100];
 float temperature[360];
