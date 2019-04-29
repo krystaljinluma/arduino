@@ -109,7 +109,7 @@ void* read_temp(void* arg) {
         pthread_mutex_unlock(&lock);
 
         float temporary = convert_to_temperature(msg);
-        temperature[i % 360] = temporary;
+        temperature[i % 3600] = temporary;
         i++;
 
       // if not successfully read, indicate disconnected

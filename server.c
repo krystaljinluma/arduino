@@ -265,10 +265,10 @@ char convert_unit(char current_unit) {
 
 /* Helper function to calculate max, min, and avg temperatures */
 void calc() {
-  float temp_arr[360];
+  float temp_arr[3600];
   int i = 0;
   pthread_mutex_lock(&lock_arr);
-  while (i < 360){
+  while (i < 3600){
     temp_arr[i] = temperature[i];
     i++;
   }
@@ -277,7 +277,7 @@ void calc() {
   max = -1000.0; min = 1000.0; avg = 0; 
   int count = 0;
   float total = 0;
-  while (i < 360){
+  while (i < 3600){
     if (temp_arr[i] != 0){
       count++;
       if (temp_arr[i] > max)
